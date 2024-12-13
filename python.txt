@@ -1,0 +1,119 @@
+import random
+import curses
+
+# Key mapping
+KEY_UP = 'w'
+KEY_DOWN = 's'
+KEY_LEFT = 'a'
+KEY_RIGHT = 'd'
+KEY_EXIT = 'q'
+
+def init_game():
+    grid = [[0] * 4 for _ in range(4)]
+    add_new_number(grid)
+    add_new_number(grid)
+    return grid
+
+def add_new_number(grid):
+    empty_cells = [(i, j) for i in range(4) for j in range(4) if grid[i][j] == 0]
+    if not empty_cells:
+        return
+    i, j = random.choice(empty_cells)
+    grid[i][j] = 4 if random.random() < 0.1 else 2
+
+def transpose(grid):
+    return [list(row) for row in zip(*grid)]
+
+def reverse(grid):
+    return [row[::-1] for row in grid]
+
+def compress(grid):
+    new_grid = []
+    for row in grid:
+        new_row = [i for i in row if i != 0]
+        new_row += [0] * (4 - len(new_row))
+        new_grid.append(new_row)
+    return new_grid
+
+def merge(grid):
+    for row in grid:
+        for i in range(3):
+            if row[i] == row[i + 1] and row[i] != 0:
+                row[i] *= 2
+                row[i + 1] = 0
+    return grid
+
+def move(grid, direction):
+    if direction == KEY_UP:
+        grid = transpose(grid)
+        grid = compress(grid)
+        grid = merge(grid)
+        grid = compress(grid)
+        grid = transpose(grid)
+    elif direction == KEY_DOWN:
+        grid = transpose(grid)
+        grid = reverse(grid)
+        grid = compress(grid)
+        grid = merge(grid)
+        grid = compress(grid)
+        grid = reverse(grid)
+        grid = transpose(grid)
+    elif direction == KEY_LEFT:
+        grid = compress(grid)
+        grid = merge(grid)
+        grid = compress(grid)
+    elif direction == KEY_RIGHT:
+        grid = reverse(grid)
+        grid = compress(grid)
+        grid = merge(grid)
+        grid = compress(grid)
+        grid = reverse(grid)
+    return grid
+
+def is_game_over(grid):
+    for i in range(4):
+        for j in range(4):
+            if grid[i][j] == 0:
+                return False
+            if i < 3 and grid[i][j] == grid[i + 1][j]:
+                return False
+            if j < 3 and grid[i][j] == grid[i][j + 1]:
+                return False
+    return True
+
+def draw_game(stdscr, grid):
+    stdscr.clear()
+    for i, row in enumerate(grid):
+        row_str = '|'.join(f"{num:^5}" if num != 0 else " " for num in row)
+        stdscr.addstr(i * 2, 0, row_str)
+        if i != 3:
+            stdscr.addstr(i * 2 + 1, 0, "-" * len(row_str))
+    stdscr.addstr(9, 0, "Use W/A/S/D to move. Press Q to quit.")
+    stdscr.refresh()
+
+def main(stdscr):
+    curses.curs_set(0)
+    grid = init_game()
+    draw_game(stdscr, grid)
+
+    while True:
+        key = stdscr.getkey().lower()
+        if key == KEY_EXIT:
+            break
+
+        if key in {KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT}:
+            new_grid = move(grid, key)
+            if new_grid != grid:
+                grid = new_grid
+                add_new_number(grid)
+
+            draw_game(stdscr, grid)
+
+            if is_game_over(grid):
+                stdscr.addstr(11, 0, "Game Over! Press Q to quit.")
+                stdscr.refresh()
+                while True:
+                    if stdscr.getkey().lower() == KEY_EXIT:
+                        return
+
+curses.wrapper(main)
